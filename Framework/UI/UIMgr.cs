@@ -42,7 +42,7 @@ public class UIMgr : BaseManager<UIMgr>
     /// 用于存储面板信息 和加载完成的回调函数的
     /// </summary>
     /// <typeparam name="T">面板的类型</typeparam>
-    private class PanelInfo<T> : BasePanelInfo where T:BasePanel
+    private class PanelInfo<T> : BasePanelInfo where T : BasePanel
     {
         public T panel;
         public UnityAction<T> callBack;
@@ -55,7 +55,7 @@ public class UIMgr : BaseManager<UIMgr>
     }
 
 
-    private Camera uiCamera;
+    public Camera uiCamera;
     private Canvas uiCanvas;
     private EventSystem uiEventSystem;
 
@@ -124,17 +124,17 @@ public class UIMgr : BaseManager<UIMgr>
     /// <param name="layer">面板显示的层级</param>
     /// <param name="callBack">由于可能是异步加载 因此通过委托回调的形式 将加载完成的面板传递出去进行使用</param>
     /// <param name="isSync">是否采用同步加载 默认为false</param>
-    public void ShowPanel<T>(E_UILayer layer = E_UILayer.Middle, UnityAction<T> callBack = null, bool isSync = false) where T:BasePanel
+    public void ShowPanel<T>(E_UILayer layer = E_UILayer.Middle, bool isFade = false,  UnityAction<T> callBack = null, bool isSync = false) where T : BasePanel
     {
         //获取面板名 预设体名必须和面板类名一致 
         string panelName = typeof(T).Name;
         //存在面板
-        if(panelDic.ContainsKey(panelName))
+        if (panelDic.ContainsKey(panelName))
         {
             //取出字典中已经占好位置的数据
             PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
             //正在异步加载中
-            if(panelInfo.panel == null)
+            if (panelInfo.panel == null)
             {
                 //如果之前显示了又隐藏 现在又想显示 那么直接设为false
                 panelInfo.isHide = false;
@@ -150,9 +150,19 @@ public class UIMgr : BaseManager<UIMgr>
                     panelInfo.panel.gameObject.SetActive(true);
 
                 //如果要显示面板 会执行一次面板的默认显示逻辑
-                panelInfo.panel.ShowMe();
-                //如果存在回调 直接返回出去即可
-                callBack?.Invoke(panelInfo.panel);
+                if (isFade)
+                {
+                    panelInfo.panel.ShowMe(() => {
+                        //如果存在回调 直接返回出去即可
+                        callBack?.Invoke(panelInfo.panel);
+                    });
+                }
+                else
+                {
+                    panelInfo.panel.ShowMe();
+                    //如果存在回调 直接返回出去即可
+                    callBack?.Invoke(panelInfo.panel);
+                }
             }
             return;
         }
@@ -166,7 +176,7 @@ public class UIMgr : BaseManager<UIMgr>
             //取出字典中已经占好位置的数据
             PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
             //表示异步加载结束前 就想要隐藏该面板了 
-            if(panelInfo.isHide)
+            if (panelInfo.isHide)
             {
                 panelDic.Remove(panelName);
                 return;
@@ -182,14 +192,32 @@ public class UIMgr : BaseManager<UIMgr>
 
             //获取对应UI组件返回出去
             T panel = panelObj.GetComponent<T>();
-            //显示面板时执行的默认方法
-            panel.ShowMe();
-            //传出去使用
-            panelInfo.callBack?.Invoke(panel);
-            //回调执行完 将其清空 避免内存泄漏
-            panelInfo.callBack = null;
-            //存储panel
-            panelInfo.panel = panel;
+            if (isFade)
+            {
+                //显示面板时执行的默认方法
+                panel.ShowMe(() =>
+                {
+                    //传出去使用
+                    panelInfo.callBack?.Invoke(panel);
+                    //回调执行完 将其清空 避免内存泄漏
+                    panelInfo.callBack = null;
+                    //存储panel
+                    panelInfo.panel = panel;
+
+                });
+                
+            }
+            else
+            {
+                //显示面板时执行的默认方法
+                panel.ShowMe();
+                //传出去使用
+                panelInfo.callBack?.Invoke(panel);
+                //回调执行完 将其清空 避免内存泄漏
+                panelInfo.callBack = null;
+                //存储panel
+                panelInfo.panel = panel;
+            }
 
         }, isSync);
     }
@@ -198,7 +226,7 @@ public class UIMgr : BaseManager<UIMgr>
     /// 隐藏面板
     /// </summary>
     /// <typeparam name="T">面板类型</typeparam>
-    public void HidePanel<T>(bool isDestory = false) where T : BasePanel
+    public void HidePanel<T>(bool isFade = true, bool isDestory = false, UnityAction action = null) where T : BasePanel
     {
         string panelName = typeof(T).Name;
         if (panelDic.ContainsKey(panelName))
@@ -206,7 +234,7 @@ public class UIMgr : BaseManager<UIMgr>
             //取出字典中已经占好位置的数据
             PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
             //但是正在加载中
-            if(panelInfo.panel == null)
+            if (panelInfo.panel == null)
             {
                 //修改隐藏表示 表示 这个面板即将要隐藏
                 panelInfo.isHide = true;
@@ -215,19 +243,42 @@ public class UIMgr : BaseManager<UIMgr>
             }
             else//已经加载结束
             {
-                //执行默认的隐藏面板想要做的事情
-                panelInfo.panel.HideMe();
-                //如果要销毁  就直接将面板销毁从字典中移除记录
-                if (isDestory)
+                if (isFade)
                 {
-                    //销毁面板
-                    GameObject.Destroy(panelInfo.panel.gameObject);
-                    //从容器中移除
-                    panelDic.Remove(panelName);
+                    //执行默认的隐藏面板想要做的事情
+                    panelInfo.panel.HideMe(() =>
+                    {
+                        //如果要销毁  就直接将面板销毁从字典中移除记录
+                        if (isDestory)
+                        {
+                            //销毁面板
+                            GameObject.Destroy(panelInfo.panel.gameObject);
+                            //从容器中移除
+                            panelDic.Remove(panelName);
+                        }
+                        //如果不销毁 那么就只是失活 下次再显示的时候 直接复用即可
+                        else
+                            panelInfo.panel.gameObject.SetActive(false);
+
+                        action?.Invoke();
+                    });
                 }
-                //如果不销毁 那么就只是失活 下次再显示的时候 直接复用即可
                 else
-                    panelInfo.panel.gameObject.SetActive(false);
+                {
+                    //如果要销毁  就直接将面板销毁从字典中移除记录
+                    if (isDestory)
+                    {
+                        //销毁面板
+                        GameObject.Destroy(panelInfo.panel.gameObject);
+                        //从容器中移除
+                        panelDic.Remove(panelName);
+                    }
+                    //如果不销毁 那么就只是失活 下次再显示的时候 直接复用即可
+                    else
+                        panelInfo.panel.gameObject.SetActive(false);
+
+                    action?.Invoke();
+                }
             }
         }
     }
@@ -236,7 +287,7 @@ public class UIMgr : BaseManager<UIMgr>
     /// 获取面板
     /// </summary>
     /// <typeparam name="T">面板的类型</typeparam>
-    public void GetPanel<T>( UnityAction<T> callBack ) where T:BasePanel
+    public void GetPanel<T>(UnityAction<T> callBack) where T : BasePanel
     {
         string panelName = typeof(T).Name;
         if (panelDic.ContainsKey(panelName))
@@ -244,12 +295,12 @@ public class UIMgr : BaseManager<UIMgr>
             //取出字典中已经占好位置的数据
             PanelInfo<T> panelInfo = panelDic[panelName] as PanelInfo<T>;
             //正在加载中
-            if(panelInfo.panel == null)
+            if (panelInfo.panel == null)
             {
                 //加载中 应该等待加载结束 再通过回调传递给外部去使用
                 panelInfo.callBack += callBack;
             }
-            else if(!panelInfo.isHide)//加载结束 并且没有隐藏
+            else if (!panelInfo.isHide)//加载结束 并且没有隐藏
             {
                 callBack?.Invoke(panelInfo.panel);
             }

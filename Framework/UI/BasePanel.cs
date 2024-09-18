@@ -31,9 +31,18 @@ public abstract class BasePanel : MonoBehaviour
                                                                    "Scrollbar Horizontal",
                                                                    "Scrollbar Vertical"};
 
+    protected CanvasGroup canvasGroup;
+    protected float alpanSpeed = 1.5f;
+    private bool isShow;
+    private UnityAction hidecallbak;
+    private UnityAction showcallbak;
 
     protected virtual void Awake()
     {
+        canvasGroup = this.GetComponent<CanvasGroup>();
+        if (canvasGroup == null)
+            canvasGroup = this.gameObject.AddComponent<CanvasGroup>();
+
         //为了避免 某一个对象上存在两种控件的情况
         //我们应该优先查找重要的组件
         FindChildrenControl<Button>();
@@ -42,22 +51,56 @@ public abstract class BasePanel : MonoBehaviour
         FindChildrenControl<InputField>();
         FindChildrenControl<ScrollRect>();
         FindChildrenControl<Dropdown>();
+        FindChildrenControl<RawImage>();
         //即使对象上挂在了多个组件 只要优先找到了重要组件
         //之后也可以通过重要组件得到身上其他挂载的内容
         FindChildrenControl<Text>();
         FindChildrenControl<TextMeshPro>();
+        FindChildrenControl<TextMeshProUGUI>();
         FindChildrenControl<Image>();
     }
 
     /// <summary>
     /// 面板显示时会调用的逻辑
     /// </summary>
-    public abstract void ShowMe();
+    public virtual void ShowMe(UnityAction callbak = null)
+    {
+        isShow = true;
+        canvasGroup.alpha = 0;
+        showcallbak = callbak;
+    }
 
     /// <summary>
     /// 面板隐藏时会调用的逻辑
     /// </summary>
-    public abstract void HideMe();
+    public virtual void HideMe(UnityAction callbak = null)
+    {
+        isShow = false;
+        canvasGroup.alpha = 1;
+        hidecallbak = callbak;
+    }
+
+    protected virtual void Update()
+    {
+        if (isShow && canvasGroup.alpha != 1)
+        {
+            canvasGroup.alpha += alpanSpeed * Time.deltaTime;
+            if (canvasGroup.alpha >= 1)
+            {
+                canvasGroup.alpha = 1;
+                showcallbak?.Invoke();
+            }
+        }
+        else if (!isShow && canvasGroup.alpha != 0)
+        {
+            canvasGroup.alpha -= alpanSpeed * Time.deltaTime;
+            if (canvasGroup.alpha <= 0)
+            {
+                canvasGroup.alpha = 0;
+                hidecallbak?.Invoke();
+            }
+        }
+    }
 
     /// <summary>
     /// 获取指定名字以及指定类型的组件
@@ -65,9 +108,9 @@ public abstract class BasePanel : MonoBehaviour
     /// <typeparam name="T">组件类型</typeparam>
     /// <param name="name">组件名字</param>
     /// <returns></returns>
-    public T GetControl<T>(string name) where T:UIBehaviour
+    public T GetControl<T>(string name) where T : UIBehaviour
     {
-        if(controlDic.ContainsKey(name))
+        if (controlDic.ContainsKey(name))
         {
             T control = controlDic[name] as T;
             if (control == null)
@@ -96,7 +139,7 @@ public abstract class BasePanel : MonoBehaviour
 
     }
 
-    private void FindChildrenControl<T>() where T:UIBehaviour
+    private void FindChildrenControl<T>() where T : UIBehaviour
     {
         T[] controls = this.GetComponentsInChildren<T>(true);
         for (int i = 0; i < controls.Length; i++)
@@ -106,25 +149,25 @@ public abstract class BasePanel : MonoBehaviour
             //通过这种方式 将对应组件记录到字典中
             if (!controlDic.ContainsKey(controlName))
             {
-                if(!defaultNameList.Contains(controlName))
+                if (!defaultNameList.Contains(controlName))
                 {
                     controlDic.Add(controlName, controls[i]);
                     //判断控件的类型 决定是否加事件监听
-                    if(controls[i] is Button)
+                    if (controls[i] is Button)
                     {
                         (controls[i] as Button).onClick.AddListener(() =>
                         {
                             ClickBtn(controlName);
                         });
                     }
-                    else if(controls[i] is Slider)
+                    else if (controls[i] is Slider)
                     {
                         (controls[i] as Slider).onValueChanged.AddListener((value) =>
                         {
                             SliderValueChange(controlName, value);
                         });
                     }
-                    else if(controls[i] is Toggle)
+                    else if (controls[i] is Toggle)
                     {
                         (controls[i] as Toggle).onValueChanged.AddListener((value) =>
                         {
@@ -132,7 +175,7 @@ public abstract class BasePanel : MonoBehaviour
                         });
                     }
                 }
-                    
+
             }
         }
     }

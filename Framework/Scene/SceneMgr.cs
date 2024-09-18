@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -22,14 +23,15 @@ public class SceneMgr : BaseManager<SceneMgr>
     }
 
     //异步切换场景的方法
-    public void LoadSceneAsyn(string name, UnityAction callBack = null)
+    public void LoadSceneAsyn(string name,bool allow = true, UnityAction callBack = null)
     {
-        MonoMgr.Instance.StartCoroutine(ReallyLoadSceneAsyn(name, callBack));
+        MonoMgr.Instance.StartCoroutine(ReallyLoadSceneAsyn(name,allow, callBack));
     }
 
-    private IEnumerator ReallyLoadSceneAsyn(string name, UnityAction callBack)
+    private IEnumerator ReallyLoadSceneAsyn(string name, bool allow, UnityAction callBack)
     {
         AsyncOperation ao = SceneManager.LoadSceneAsync(name);
+        ao.allowSceneActivation = allow;
         //不停的在协同程序中每帧检测是否加载结束 如果加载结束就不会进这个循环每帧执行了
         while (!ao.isDone)
         {
@@ -39,6 +41,27 @@ public class SceneMgr : BaseManager<SceneMgr>
         }
         //避免最后一帧直接结束了 没有同步1出去
         EventCenter.Instance.EventTrigger<float>(E_EventType.E_SceneLoadChange, 1);
+
+        callBack?.Invoke();
+        callBack = null;
+    }
+
+    //异步切换场景的方法
+    public void LoadSceneAoAsyn(string name, UnityAction callBack = null)
+    {
+        MonoMgr.Instance.StartCoroutine(ReallyLoadSceneAoAsyn(name, callBack));
+    }
+
+    private IEnumerator ReallyLoadSceneAoAsyn(string name, UnityAction callBack)
+    {
+        AsyncOperation ao = SceneManager.LoadSceneAsync(name);
+        ao.allowSceneActivation = false;
+        //不停的在协同程序中每帧检测是否加载结束 如果加载结束就不会进这个循环每帧执行了
+        while (!ao.isDone)
+        {
+            EventCenter.Instance.EventTrigger<AsyncOperation>(E_EventType.E_AsynSceneAo, ao);
+            yield return 0;
+        }
 
         callBack?.Invoke();
         callBack = null;

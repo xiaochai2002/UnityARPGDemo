@@ -46,4 +46,17 @@ public enum E_EventType
     /// 竖直热键 -1~1的事件监听
     /// </summary>
     E_Input_Vertical,
+
+    /// <summary>
+    /// 异步场景切换返回AsyncOperation
+    /// </summary>
+    E_AsynSceneAo,
+
+    /// <summary>
+    /// 按下空格跳转场景
+    /// </summary>
+    E_SceneSpace,
+
+    E_Task,
+    E_Task_Npc2,
 }

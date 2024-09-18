@@ -17,7 +17,7 @@ public class MusicMgr : BaseManager<MusicMgr>
     //管理正在播放的音效
     private List<AudioSource> soundList = new List<AudioSource>();
     //音效音量大小
-    private float soundValue = 0.1f;
+    private float soundValue = 1f;
     //音效是否在播放
     private bool soundIsPlay = true;
 
